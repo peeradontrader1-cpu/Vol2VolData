@@ -1,4 +1,4 @@
-Gold (OG|GC) OG3G6 (4.47 DTE) vs 5013.5 (-32.8) - Intraday Volume
+Gold (OG|GC) OG3G6 (4.46 DTE) vs 5014.4 (-31.9) - Intraday Volume
 Strike,Call,Put,Vol Settle
 4625,0,0,0.4083573718213813
 4630,0,0,0.4055743079795775
