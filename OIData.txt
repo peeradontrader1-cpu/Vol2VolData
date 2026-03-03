@@ -1,4 +1,4 @@
-Gold (OG|GC) G1TH6 (0.93 DTE) vs 5340.4 (+92.5) - Open Interest
+Gold (OG|GC) G1TH6 (0.77 DTE) vs 5335.9 (+88) - Open Interest
 Strike,Call,Put,Vol Settle
 5060,2,2,0.3160361962443403
 5065,0,0,0.314393855251069
