@@ -1,6 +1,7 @@
 Gold (OG|GC) OG2H6 (0.26 DTE) vs 5101.4 (-24.4) - Intraday Volume
-Put: 924  Call: 731  Vol: 38.72  Vol Chg: 5.43  Future Chg: -24.4
+Put: 924  Call: 731  Vol: 39.16  Vol Chg: 5.29  Future Chg: -24.4
 Strike,Call,Put,Vol Settle
+4945,0,1,0.47723071111431636
 4950,0,11,0.47126609609313164
 4955,0,0,0.4653331227000308
 4960,0,0,0.459438933092315
