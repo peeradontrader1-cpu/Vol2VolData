@@ -1,5 +1,5 @@
-Gold (OG|GC) G3TH6 (0.45 DTE) vs 5016.1 (+13.9) - Intraday Volume
-Put: 308  Call: 301  Vol: 30.54  Vol Chg: 0.07  Future Chg: 13.9
+Gold (OG|GC) G3TH6 (0.44 DTE) vs 5014.5 (+12.3) - Intraday Volume
+Put: 310  Call: 301  Vol: 30.54  Vol Chg: 0.07  Future Chg: 12.3
 Strike,Call,Put,Vol Settle
 4860,0,1,0.43097647435024555
 4865,0,0,0.425245245928636
