@@ -1,0 +1,19 @@
+name: Send Vol2Vol Image on Update
+on:
+  push:
+    paths:
+      - 'Intraday+OI.png'  # ทำงานเฉพาะเมื่อไฟล์รูปนี้มีการเปลี่ยนแปลงเท่านั้น
+  workflow_dispatch:      # ปุ่มกดรันเองสำหรับทดสอบ
+
+jobs:
+  send_image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send PNG to Telegram
+        run: |
+          IMAGE_URL="https://raw.githubusercontent.com/peeradontrader1-cpu/Vol2VolData/main/Intraday%2BOI.png"
+          
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendPhoto" \
+            -F chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            -F photo="$IMAGE_URL" \
+            -F caption="✅ ตรวจพบการอัปเดตข้อมูล! ส่งรูปใหม่เข้ากลุ่มเรียบร้อยครับ"
