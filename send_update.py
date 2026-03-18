@@ -2,15 +2,15 @@ import os
 import requests
 import pandas as pd
 from datetime import datetime
-import pytz  # สำหรับจัดการ Timezone
+import pytz
 
-# ข้อมูลการเชื่อมต่อ (แนะนำให้ใช้ค่าเดิมที่คุณตั้งไว้)
-TOKEN = "8738260894:AAGah4mPDvoUeLmiMTlzkGAlZaAqyP7b5o4"
-CHAT_ID = "-1003709177186"
+# ดึงค่าจากระบบ Secrets ของ GitHub (ปลอดภัย 100%)
+TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
 def get_summary():
     try:
-        # 1. ตั้งค่าเวลาให้เป็นประเทศไทย (+7)
+        # 1. ตั้งค่าเวลาประเทศไทย (+7)
         tz_th = pytz.timezone('Asia/Bangkok')
         now_th = datetime.now(tz_th)
         time_str = now_th.strftime('%H:%M')
@@ -54,7 +54,7 @@ def get_summary():
         )
         return message
     except Exception as e:
-        return f"⚠️ Error: {str(e)}"
+        return f"⚠️ Error ในการอ่านข้อมูล: {str(e)}"
 
 def send_to_telegram(caption_text):
     image_url = "https://raw.githubusercontent.com/peeradontrader1-cpu/Vol2VolData/main/Intraday%2BOI.png"
@@ -65,8 +65,12 @@ def send_to_telegram(caption_text):
         "caption": caption_text,
         "parse_mode": "Markdown"
     }
-    requests.post(url, data=payload)
+    response = requests.post(url, data=payload)
+    print(f"Telegram Response: {response.json()}")
 
 if __name__ == "__main__":
-    summary = get_summary()
-    send_to_telegram(summary)
+    if TOKEN and CHAT_ID:
+        summary = get_summary()
+        send_to_telegram(summary)
+    else:
+        print("❌ Error: ไม่พบค่า TELEGRAM_BOT_TOKEN หรือ TELEGRAM_CHAT_ID ใน Secrets")
