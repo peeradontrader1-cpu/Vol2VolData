@@ -2,17 +2,23 @@ import os
 import requests
 import pandas as pd
 from datetime import datetime
+import pytz  # สำหรับจัดการ Timezone
 
-# ข้อมูลที่ดึงจาก GitHub Secrets
+# ข้อมูลการเชื่อมต่อ (แนะนำให้ใช้ค่าเดิมที่คุณตั้งไว้)
 TOKEN = "8738260894:AAGah4mPDvoUeLmiMTlzkGAlZaAqyP7b5o4"
 CHAT_ID = "-1003709177186"
 
 def get_summary():
     try:
-        # 1. ดึงข้อมูล Intraday
+        # 1. ตั้งค่าเวลาให้เป็นประเทศไทย (+7)
+        tz_th = pytz.timezone('Asia/Bangkok')
+        now_th = datetime.now(tz_th)
+        time_str = now_th.strftime('%H:%M')
+        date_str = now_th.strftime('%d %b %Y')
+
+        # 2. ดึงข้อมูล Intraday
         url_intra = "https://raw.githubusercontent.com/peeradontrader1-cpu/Vol2VolData/main/IntradayData.txt"
         df_intra = pd.read_csv(url_intra, skiprows=2)
-        
         intra_call = int(df_intra['Call'].sum())
         intra_put = int(df_intra['Put'].sum())
         intra_ratio = round(intra_put / intra_call, 2) if intra_call > 0 else 0
@@ -21,18 +27,15 @@ def get_summary():
         df_intra['Total'] = df_intra['Call'] + df_intra['Put']
         top_intra = df_intra.loc[df_intra['Total'].idxmax()]
 
-        # 2. ดึงข้อมูล OI
+        # 3. ดึงข้อมูล OI
         url_oi = "https://raw.githubusercontent.com/peeradontrader1-cpu/Vol2VolData/main/OIData.txt"
         df_oi = pd.read_csv(url_oi, skiprows=2)
         oi_call = int(df_oi['Call'].sum())
         oi_put = int(df_oi['Put'].sum())
 
-        now = datetime.now().strftime('%H:%M')
-        date_str = datetime.now().strftime('%d %b %Y')
-
-        # จัดรูปแบบข้อความ (Caption)
+        # 4. จัดรูปแบบข้อความ (Caption)
         message = (
-            f"📊 *GOLD UPDATE* | {now} น.\n"
+            f"📊 *GOLD UPDATE* | {time_str} น.\n"
             f"📅 ซีรีย์: {date_str}\n\n"
             f"📊 *GOLD INTRADAY*\n"
             f"────────────────\n"
