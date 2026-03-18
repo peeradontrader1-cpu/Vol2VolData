@@ -20,7 +20,8 @@ jobs:
           python-version: '3.9'
 
       - name: Install dependencies
-        run: pip install pandas requests
+        run: |
+          pip install pandas requests pytz
 
       - name: Run script
         run: python send_update.py
