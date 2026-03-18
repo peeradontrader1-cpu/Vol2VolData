@@ -1,11 +1,13 @@
-name: Send Vol2Vol Image on Update
+name: Send Vol2Vol Image on Schedule
 on:
+  schedule:
+    - cron: '*/30 * * * *'  # สั่งให้บอทรันอัตโนมัติทุกๆ 30 นาที
   push:
     paths:
       - 'Intraday+OI.png'
       - 'IntradayData.txt'
       - 'OIData.txt'
-  workflow_dispatch:
+  workflow_dispatch:        # ปุ่มสำหรับกดรันเองเพื่อทดสอบ
 
 jobs:
   build:
@@ -25,7 +27,6 @@ jobs:
 
       - name: Run script
         env:
-          # ส่วนนี้คือการดึงค่าจากระบบ Secrets ของ GitHub มาส่งให้ Python
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python send_update.py
