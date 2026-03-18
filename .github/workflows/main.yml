@@ -24,4 +24,8 @@ jobs:
           pip install pandas requests pytz
 
       - name: Run script
+        env:
+          # ส่วนนี้คือการดึงค่าจากระบบ Secrets ของ GitHub มาส่งให้ Python
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python send_update.py
