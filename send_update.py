@@ -17,31 +17,28 @@ def get_summary():
         time_str = now_th.strftime('%H:%M')
         date_str = now_th.strftime('%d %b %Y')
         
-        # สร้างตัวเลข Timestamp เพื่อป้องกันการดึงข้อมูลเก่าค้างแคช
         cache_buster = int(time.time())
-
-        # 2. URL แหล่งข้อมูลต้นฉบับจากบัญชี pageth
         base_url = "https://raw.githubusercontent.com/pageth/Vol2VolData/main"
         
+        # ลิงก์ตรวจสอบสถานะไฟล์ (เช็คว่าต้นฉบับอัปเดตหรือยัง)
         url_intra = f"{base_url}/IntradayData.txt?v={cache_buster}"
         url_oi = f"{base_url}/OIData.txt?v={cache_buster}"
         
-        # อ่านข้อมูล Intraday
+        # อ่านข้อมูลจากต้นฉบับ
         df_intra = pd.read_csv(url_intra, skiprows=2)
+        df_oi = pd.read_csv(url_oi, skiprows=2)
+        
         intra_call = int(df_intra['Call'].sum())
         intra_put = int(df_intra['Put'].sum())
         intra_ratio = round(intra_put / intra_call, 2) if intra_call > 0 else 0
         
-        # หา Top Active
         df_intra['Total'] = df_intra['Call'] + df_intra['Put']
         top_intra = df_intra.loc[df_intra['Total'].idxmax()]
 
-        # อ่านข้อมูล OI
-        df_oi = pd.read_csv(url_oi, skiprows=2)
         oi_call = int(df_oi['Call'].sum())
         oi_put = int(df_oi['Put'].sum())
 
-        # 3. จัดรูปแบบข้อความ
+        # จัดรูปแบบข้อความ
         message = (
             f"📊 *GOLD UPDATE* | {time_str} น.\n"
             f"📅 ซีรีย์: {date_str}\n\n"
@@ -58,15 +55,15 @@ def get_summary():
             f"🟠 Put: {oi_put:,}\n"
             f"🔵 Call: {oi_call:,}\n"
             f"────────────────\n"
-            f"✅ ดึงข้อมูลล่าสุดจากต้นฉบับ pageth เรียบร้อย"
+            f"✅ อัปเดตสดจากต้นฉบับ (ทุก 15 นาที)"
         )
         return message
     except Exception as e:
-        return f"⚠️ ระบบขัดข้อง (ตรวจสอบชื่อไฟล์ต้นฉบับ): {str(e)}"
+        print(f"Error: {e}")
+        return None
 
 def send_to_telegram(caption_text):
     cache_buster = int(time.time())
-    # ดึงรูปภาพจากต้นฉบับ pageth โดยตรง
     image_url = f"https://raw.githubusercontent.com/pageth/Vol2VolData/main/Intraday%2BOI.png?v={cache_buster}"
     
     url = f"https://api.telegram.org/bot{TOKEN}/sendPhoto"
@@ -82,6 +79,7 @@ def send_to_telegram(caption_text):
 if __name__ == "__main__":
     if TOKEN and CHAT_ID:
         summary = get_summary()
-        send_to_telegram(summary)
+        if summary:
+            send_to_telegram(summary)
     else:
-        print("❌ Error: ไม่พบค่าใน Secrets (เช็ค TOKEN/CHAT_ID)")
+        print("❌ Error: Missing Secrets")
