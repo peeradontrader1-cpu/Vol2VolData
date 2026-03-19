@@ -1,13 +1,8 @@
 name: Send Vol2Vol Image on Schedule
 on:
   schedule:
-    - cron: '*/30 * * * *'  # สั่งให้บอทรันอัตโนมัติทุกๆ 30 นาที
-  push:
-    paths:
-      - 'Intraday+OI.png'
-      - 'IntradayData.txt'
-      - 'OIData.txt'
-  workflow_dispatch:        # ปุ่มสำหรับกดรันเองเพื่อทดสอบ
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
 
 jobs:
   build:
@@ -15,16 +10,12 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
-
       - name: Install dependencies
-        run: |
-          pip install pandas requests pytz
-
+        run: pip install pandas requests pytz
       - name: Run script
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
