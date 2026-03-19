@@ -3,38 +3,45 @@ import requests
 import pandas as pd
 from datetime import datetime
 import pytz
-import time # เพิ่มมาเพื่อใช้ทำ timestamp
+import time
 
+# ดึงค่าจาก GitHub Secrets
 TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
 def get_summary():
     try:
+        # 1. ตั้งค่าเวลาประเทศไทย (+7)
         tz_th = pytz.timezone('Asia/Bangkok')
         now_th = datetime.now(tz_th)
         time_str = now_th.strftime('%H:%M')
         date_str = now_th.strftime('%d %b %Y')
         
-        # สร้าง Timestamp เพื่อทำลาย Cache (บังคับดึงไฟล์ใหม่ล่าสุด)
+        # สร้างตัวเลข Timestamp เพื่อป้องกันการดึงข้อมูลเก่าค้างแคช
         cache_buster = int(time.time())
 
-        # URL แหล่งข้อมูล (เติม ?v=... เพื่อบังคับ Refresh)
-        url_intra = f"https://raw.githubusercontent.com/peeradontrader1-cpu/Vol2VolData/main/IntradayData.txt?v={cache_buster}"
-        url_oi = f"https://raw.githubusercontent.com/peeradontrader1-cpu/Vol2VolData/main/OIData.txt?v={cache_buster}"
+        # 2. URL แหล่งข้อมูลต้นฉบับจากบัญชี pageth
+        base_url = "https://raw.githubusercontent.com/pageth/Vol2VolData/main"
         
-        # อ่านข้อมูล
+        url_intra = f"{base_url}/IntradayData.txt?v={cache_buster}"
+        url_oi = f"{base_url}/OIData.txt?v={cache_buster}"
+        
+        # อ่านข้อมูล Intraday
         df_intra = pd.read_csv(url_intra, skiprows=2)
         intra_call = int(df_intra['Call'].sum())
         intra_put = int(df_intra['Put'].sum())
         intra_ratio = round(intra_put / intra_call, 2) if intra_call > 0 else 0
         
+        # หา Top Active
         df_intra['Total'] = df_intra['Call'] + df_intra['Put']
         top_intra = df_intra.loc[df_intra['Total'].idxmax()]
 
+        # อ่านข้อมูล OI
         df_oi = pd.read_csv(url_oi, skiprows=2)
         oi_call = int(df_oi['Call'].sum())
         oi_put = int(df_oi['Put'].sum())
 
+        # 3. จัดรูปแบบข้อความ
         message = (
             f"📊 *GOLD UPDATE* | {time_str} น.\n"
             f"📅 ซีรีย์: {date_str}\n\n"
@@ -51,16 +58,16 @@ def get_summary():
             f"🟠 Put: {oi_put:,}\n"
             f"🔵 Call: {oi_call:,}\n"
             f"────────────────\n"
-            f"✅ อัปเดตข้อมูลล่าสุดแล้ว"
+            f"✅ ดึงข้อมูลล่าสุดจากต้นฉบับ pageth เรียบร้อย"
         )
         return message
     except Exception as e:
-        return f"⚠️ ระบบขัดข้อง: {str(e)}"
+        return f"⚠️ ระบบขัดข้อง (ตรวจสอบชื่อไฟล์ต้นฉบับ): {str(e)}"
 
 def send_to_telegram(caption_text):
-    # รูปภาพก็ต้องเติม Cache Buster เช่นกันครับ
     cache_buster = int(time.time())
-    image_url = f"https://raw.githubusercontent.com/peeradontrader1-cpu/Vol2VolData/main/Intraday%2BOI.png?v={cache_buster}"
+    # ดึงรูปภาพจากต้นฉบับ pageth โดยตรง
+    image_url = f"https://raw.githubusercontent.com/pageth/Vol2VolData/main/Intraday%2BOI.png?v={cache_buster}"
     
     url = f"https://api.telegram.org/bot{TOKEN}/sendPhoto"
     payload = {
@@ -69,9 +76,12 @@ def send_to_telegram(caption_text):
         "caption": caption_text,
         "parse_mode": "Markdown"
     }
-    requests.post(url, data=payload)
+    response = requests.post(url, data=payload)
+    print(f"Telegram Response: {response.json()}")
 
 if __name__ == "__main__":
     if TOKEN and CHAT_ID:
         summary = get_summary()
         send_to_telegram(summary)
+    else:
+        print("❌ Error: ไม่พบค่าใน Secrets (เช็ค TOKEN/CHAT_ID)")
