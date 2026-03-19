@@ -1,15 +1,14 @@
-name: Gold Update 30M
-
+name: Send Vol2Vol Image Every 15 Min
 on:
   schedule:
-    - cron: '0,30 * * * *'
-  workflow_dispatch:
+    - cron: '*/15 * * * *'  # รันทุกๆ 15 นาที (เช่น 00, 15, 30, 45)
+  workflow_dispatch:        # ปุ่มกดมือ
 
 jobs:
-  run-bot:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v3
 
       - name: Set up Python
@@ -17,11 +16,12 @@ jobs:
         with:
           python-version: '3.9'
 
-      - name: Install Libs
-        run: pip install requests pandas pytz
+      - name: Install dependencies
+        run: |
+          pip install pandas requests pytz
 
-      - name: Run
+      - name: Run script
         env:
-          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python send_update.py
