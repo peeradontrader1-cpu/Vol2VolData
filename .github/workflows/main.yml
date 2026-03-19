@@ -1,14 +1,17 @@
-name: Send Vol2Vol Image on Schedule
+name: Gold Data 30m Update
+
 on:
   schedule:
-    - cron: '*/30 * * * *'
-  workflow_dispatch:
+    # รันทุกนาทีที่ 0 และ 30 ของทุกชั่วโมง (เวลา UTC)
+    # 0,30 * * * * ตรงกับเวลาไทยนาทีที่ 0 และ 30 ของทุกชั่วโมง
+    - cron: '0,30 * * * *'
+  workflow_dispatch: # สำหรับกดรันเองเพื่อทดสอบ
 
 jobs:
-  build:
+  run-bot:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v3
 
       - name: Set up Python
@@ -16,12 +19,12 @@ jobs:
         with:
           python-version: '3.9'
 
-      - name: Install dependencies
+      - name: Install Dependencies
         run: |
-          pip install pandas requests pytz
+          pip install requests pandas pytz
 
-      - name: Run script
+      - name: Run Telegram Bot
         env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python send_update.py
