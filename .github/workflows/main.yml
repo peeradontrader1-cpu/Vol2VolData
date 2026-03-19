@@ -1,9 +1,10 @@
 name: Send Vol2Vol Image Every 30 Min
+
 on:
   schedule:
     # รันทุกนาทีที่ 0 และ 30 ของทุกชั่วโมง (เช่น 22:00, 22:30)
     - cron: '0,30 * * * *'
-  workflow_dispatch:
+  workflow_dispatch: # ปุ่มกดรันเองสำหรับทดสอบ
 
 jobs:
   build:
