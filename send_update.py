@@ -7,8 +7,9 @@ import time
 from io import StringIO
 import re
 import html
+import traceback
 
-# ดึงค่า Secrets จาก GitHub Environment
+# ดึงค่าจาก GitHub Secrets
 TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
@@ -21,18 +22,18 @@ def get_summary():
         cache_buster = int(time.time())
         base_url = "https://raw.githubusercontent.com/pageth/Vol2VolData/main"
         
-        # 1. ดึงข้อมูลแบบ Raw Data
+        # 1. ดึงข้อมูล Raw แบบสดใหม่
         res_intra_resp = requests.get(f"{base_url}/IntradayData.txt?v={cache_buster}")
         res_oi_resp = requests.get(f"{base_url}/OIData.txt?v={cache_buster}")
 
         if res_intra_resp.status_code != 200 or res_oi_resp.status_code != 200:
-            print(f"❌ Failed to fetch data. Intraday Status: {res_intra_resp.status_code}, OI Status: {res_oi_resp.status_code}")
+            print(f"❌ Failed to fetch data. Intraday: {res_intra_resp.status_code}, OI: {res_oi_resp.status_code}")
             return None
 
         res_intra_raw = res_intra_resp.text
         res_oi_raw = res_oi_resp.text
         
-        # 2. ดึงชื่อซีรีย์ (เช่น 19 Mar 2026) จากบรรทัดแรกๆ
+        # 2. สกัดชื่อซีรีย์จากบรรทัดแรก (เช่น 19 Mar 2026)
         series_name = "N/A"
         lines = [line.strip() for line in res_intra_raw.split('\n') if line.strip()]
         if lines:
@@ -40,15 +41,15 @@ def get_summary():
             if series_match:
                 series_name = series_match.group(1).strip()
 
-        # 3. แปลง Text เป็น Pandas DataFrame (ข้าม 2 บรรทัดแรกที่เป็น Header ข้อความ)
+        # 3. อ่านข้อมูลโดยข้าม 2 บรรทัดแรก (Header ของไฟล์)
         df_i = pd.read_csv(StringIO(res_intra_raw), skiprows=2)
         df_o = pd.read_csv(StringIO(res_oi_raw), skiprows=2)
         
-        # Clean ชื่อคอลัมน์เผื่อมีช่องว่างติดมา
+        # Clean ชื่อคอลัมน์กันมีช่องว่างติดมา
         df_i.columns = df_i.columns.str.strip()
         df_o.columns = df_o.columns.str.strip()
 
-        # ตรวจสอบคอลัมน์ที่จำเป็น
+        # ตรวจสอบคอลัมน์ว่าครบไหม
         required_cols = ['Strike', 'Put', 'Call']
         if not all(col in df_i.columns for col in required_cols):
             print(f"❌ Intraday Columns missing. Found: {list(df_i.columns)}")
@@ -70,7 +71,7 @@ def get_summary():
         df_o['Total'] = df_o['Put'] + df_o['Call']
         top_o = df_o.nlargest(2, 'Total')
 
-        # --- [จัดรูปแบบข้อความอัปเดตแบบเดิม] ---
+        # --- [จัดรูปแบบข้อความตามตัวอย่างเดิมเป๊ะ] ---
         msg = f"📊 <b>GOLD UPDATE</b> | {time_str} น.\n"
         msg += f"🗓️ <b>ซีรีย์:</b> {html.escape(series_name)}\n\n"
         
@@ -111,28 +112,49 @@ def get_summary():
 
     except Exception as e:
         print(f"❌ Error during data processing: {e}")
-        import traceback
         traceback.print_exc()
         return None
 
 def send_to_telegram(caption_text):
-    img_url = f"https://raw.githubusercontent.com/pageth/Vol2VolData/main/Intraday%2BOI.png?v={int(time.time())}"
-    api_url = f"https://api.telegram.org/bot{TOKEN}/sendPhoto"
+    cache_buster = int(time.time())
+    # URL รูปภาพ ใช้ %2B แทนเครื่องหมายบวกให้ถูกต้อง
+    img_url = f"https://raw.githubusercontent.com/pageth/Vol2VolData/main/Intraday%2BOI.png?v={cache_buster}"
     
-    payload = {
-        "chat_id": CHAT_ID,
-        "photo": img_url,
-        "caption": caption_text,
-        "parse_mode": "HTML"
-    }
+    api_photo_url = f"https://api.telegram.org/bot{TOKEN}/sendPhoto"
+    api_message_url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     
     try:
-        r = requests.post(api_url, data=payload)
-        print(f"Telegram API Status Code: {r.status_code}")
-        print(f"Telegram API Response: {r.text}")
+        # 1. ให้ Python โหลดรูปมาเก็บไว้เองก่อน เลี่ยงบั๊ก Telegram ดึงรูปล้มเหลว
+        print("Downloading image from GitHub...")
+        img_response = requests.get(img_url)
         
-        if r.status_code != 200:
-            print("❌ Telegram failed to accept the message. Check response details above.")
+        # 2. ถ้ารูปมีอยู่จริง และโหลดสำเร็จ
+        if img_response.status_code == 200:
+            print("Image downloaded successfully. Sending Photo to Telegram...")
+            files = {'photo': ('chart.png', img_response.content)}
+            payload = {
+                "chat_id": CHAT_ID,
+                "caption": caption_text,
+                "parse_mode": "HTML"
+            }
+            r = requests.post(api_photo_url, data=payload, files=files)
+            print(f"Telegram Photo Status: {r.status_code}")
+            if r.status_code != 200:
+                print(f"❌ Telegram Error (Photo): {r.text}")
+                
+        # 3. ถ้ารูปไม่มีบน GitHub (หรือโหลดไม่ขึ้น) ให้สลับไปส่งแค่ข้อความแทน
+        else:
+            print(f"⚠️ Image not found (Status: {img_response.status_code}). Sending text only...")
+            payload_text = {
+                "chat_id": CHAT_ID,
+                "text": caption_text,
+                "parse_mode": "HTML"
+            }
+            r = requests.post(api_message_url, data=payload_text)
+            print(f"Telegram Text-Only Status: {r.status_code}")
+            if r.status_code != 200:
+                print(f"❌ Telegram Error (Text): {r.text}")
+                
     except Exception as e:
         print(f"❌ Error sending to Telegram: {e}")
 
@@ -142,6 +164,6 @@ if __name__ == "__main__":
         if summary_text:
             send_to_telegram(summary_text)
         else:
-            print("❌ Failed to generate summary text.")
+            print("❌ Failed to generate summary text. Check data format.")
     else:
         print("❌ Secrets Missing: Check TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID")
