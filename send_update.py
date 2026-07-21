@@ -116,35 +116,29 @@ def get_summary():
         return None
 
 def send_to_telegram(caption_text):
-    cache_buster = int(time.time())
-    # URL รูปภาพ ใช้ %2B แทนเครื่องหมายบวกให้ถูกต้อง
-    img_url = f"https://raw.githubusercontent.com/pageth/Vol2VolData/main/Intraday%2BOI.png?v={cache_buster}"
-    
     api_photo_url = f"https://api.telegram.org/bot{TOKEN}/sendPhoto"
     api_message_url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     
+    # ดึงไฟล์รูปภาพในโฟลเดอร์โดยตรง
+    local_image_path = "Intraday+OI.png"
+    
     try:
-        # 1. ให้ Python โหลดรูปมาเก็บไว้เองก่อน เลี่ยงบั๊ก Telegram ดึงรูปล้มเหลว
-        print("Downloading image from GitHub...")
-        img_response = requests.get(img_url)
-        
-        # 2. ถ้ารูปมีอยู่จริง และโหลดสำเร็จ
-        if img_response.status_code == 200:
-            print("Image downloaded successfully. Sending Photo to Telegram...")
-            files = {'photo': ('chart.png', img_response.content)}
-            payload = {
-                "chat_id": CHAT_ID,
-                "caption": caption_text,
-                "parse_mode": "HTML"
-            }
-            r = requests.post(api_photo_url, data=payload, files=files)
-            print(f"Telegram Photo Status: {r.status_code}")
-            if r.status_code != 200:
-                print(f"❌ Telegram Error (Photo): {r.text}")
-                
-        # 3. ถ้ารูปไม่มีบน GitHub (หรือโหลดไม่ขึ้น) ให้สลับไปส่งแค่ข้อความแทน
+        if os.path.exists(local_image_path):
+            print("📸 Found local image! Sending Photo to Telegram...")
+            with open(local_image_path, 'rb') as img_file:
+                files = {'photo': img_file}
+                payload = {
+                    "chat_id": CHAT_ID,
+                    "caption": caption_text,
+                    "parse_mode": "HTML"
+                }
+                r = requests.post(api_photo_url, data=payload, files=files)
+                print(f"Telegram Photo Status: {r.status_code}")
+                if r.status_code != 200:
+                    print(f"❌ Telegram Error (Photo): {r.text}")
+                    
         else:
-            print(f"⚠️ Image not found (Status: {img_response.status_code}). Sending text only...")
+            print(f"⚠️ Local image '{local_image_path}' not found! Sending text only...")
             payload_text = {
                 "chat_id": CHAT_ID,
                 "text": caption_text,
@@ -152,9 +146,7 @@ def send_to_telegram(caption_text):
             }
             r = requests.post(api_message_url, data=payload_text)
             print(f"Telegram Text-Only Status: {r.status_code}")
-            if r.status_code != 200:
-                print(f"❌ Telegram Error (Text): {r.text}")
-                
+            
     except Exception as e:
         print(f"❌ Error sending to Telegram: {e}")
 
