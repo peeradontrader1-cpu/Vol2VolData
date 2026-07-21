@@ -13,27 +13,29 @@ import traceback
 TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
+BASE_URL = "https://raw.githubusercontent.com/pageth/Vol2VolData/main"
+
 def get_summary():
     try:
         tz_th = pytz.timezone('Asia/Bangkok')
         now_th = datetime.now(tz_th)
         time_str = now_th.strftime('%H:%M')
         
+        # ใส่ timestamp ป้องกันการติด Cache เพื่อให้ได้ข้อมูลล่าสุดเสมอ
         cache_buster = int(time.time())
-        base_url = "https://raw.githubusercontent.com/pageth/Vol2VolData/main"
         
-        # 1. ดึงข้อมูล Raw แบบสดใหม่
-        res_intra_resp = requests.get(f"{base_url}/IntradayData.txt?v={cache_buster}")
-        res_oi_resp = requests.get(f"{base_url}/OIData.txt?v={cache_buster}")
+        # 1. ดึงข้อมูล Raw สดใหม่จากต้นฉบับ
+        res_intra_resp = requests.get(f"{BASE_URL}/IntradayData.txt?v={cache_buster}", timeout=10)
+        res_oi_resp = requests.get(f"{BASE_URL}/OIData.txt?v={cache_buster}", timeout=10)
 
         if res_intra_resp.status_code != 200 or res_oi_resp.status_code != 200:
-            print(f"❌ Failed to fetch data. Intraday: {res_intra_resp.status_code}, OI: {res_oi_resp.status_code}")
+            print(f"❌ Failed to fetch raw data. Intraday: {res_intra_resp.status_code}, OI: {res_oi_resp.status_code}")
             return None
 
         res_intra_raw = res_intra_resp.text
         res_oi_raw = res_oi_resp.text
         
-        # 2. สกัดชื่อซีรีย์จากบรรทัดแรก (เช่น 19 Mar 2026)
+        # 2. สกัดชื่อซีรีย์จากบรรทัดแรก
         series_name = "N/A"
         lines = [line.strip() for line in res_intra_raw.split('\n') if line.strip()]
         if lines:
@@ -41,15 +43,13 @@ def get_summary():
             if series_match:
                 series_name = series_match.group(1).strip()
 
-        # 3. อ่านข้อมูลโดยข้าม 2 บรรทัดแรก (Header ของไฟล์)
+        # 3. แปลงเป็น Dataframe
         df_i = pd.read_csv(StringIO(res_intra_raw), skiprows=2)
         df_o = pd.read_csv(StringIO(res_oi_raw), skiprows=2)
         
-        # Clean ชื่อคอลัมน์กันมีช่องว่างติดมา
         df_i.columns = df_i.columns.str.strip()
         df_o.columns = df_o.columns.str.strip()
 
-        # ตรวจสอบคอลัมน์ว่าครบไหม
         required_cols = ['Strike', 'Put', 'Call']
         if not all(col in df_i.columns for col in required_cols):
             print(f"❌ Intraday Columns missing. Found: {list(df_i.columns)}")
@@ -71,7 +71,7 @@ def get_summary():
         df_o['Total'] = df_o['Put'] + df_o['Call']
         top_o = df_o.nlargest(2, 'Total')
 
-        # --- [จัดรูปแบบข้อความตามตัวอย่างเดิมเป๊ะ] ---
+        # --- [จัดรูปแบบข้อความรายงาน] ---
         msg = f"📊 <b>GOLD UPDATE</b> | {time_str} น.\n"
         msg += f"🗓️ <b>ซีรีย์:</b> {html.escape(series_name)}\n\n"
         
@@ -119,12 +119,28 @@ def send_to_telegram(caption_text):
     api_photo_url = f"https://api.telegram.org/bot{TOKEN}/sendPhoto"
     api_message_url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     
-    # ดึงไฟล์รูปภาพในโฟลเดอร์โดยตรง
-    local_image_path = "Intraday+OI.png"
+    # ดึงรูปภาพต้นฉบับล่าสุดแบบสดใหม่โดยต่อ Cache Buster
+    cache_buster = int(time.time())
+    img_url = f"{BASE_URL}/Intraday%2BOI.png?v={cache_buster}"
+    local_image_path = "Intraday_OI_latest.png"
     
     try:
-        if os.path.exists(local_image_path):
-            print("📸 Found local image! Sending Photo to Telegram...")
+        # 1. โหลดรูปภาพต้นฉบับอัปเดตล่าสุดมาเก็บชั่วคราว
+        print("📥 Downloading latest image from source...")
+        img_resp = requests.get(img_url, timeout=15)
+        
+        image_downloaded = False
+        if img_resp.status_code == 200:
+            with open(local_image_path, "wb") as f:
+                f.write(img_resp.content)
+            image_downloaded = True
+            print("✅ Latest image downloaded successfully!")
+        else:
+            print(f"⚠️ Failed to download latest image (Status: {img_resp.status_code})")
+
+        # 2. ส่งรูปพร้อมข้อความเข้า Telegram
+        if image_downloaded and os.path.exists(local_image_path):
+            print("📸 Sending latest Photo and Caption to Telegram...")
             with open(local_image_path, 'rb') as img_file:
                 files = {'photo': img_file}
                 payload = {
@@ -132,19 +148,24 @@ def send_to_telegram(caption_text):
                     "caption": caption_text,
                     "parse_mode": "HTML"
                 }
-                r = requests.post(api_photo_url, data=payload, files=files)
+                r = requests.post(api_photo_url, data=payload, files=files, timeout=20)
                 print(f"Telegram Photo Status: {r.status_code}")
                 if r.status_code != 200:
                     print(f"❌ Telegram Error (Photo): {r.text}")
+                
+                # ลบไฟล์ชั่วคราวหลังส่งเสร็จ
+                img_file.close()
+                os.remove(local_image_path)
                     
         else:
-            print(f"⚠️ Local image '{local_image_path}' not found! Sending text only...")
+            # สำรอง: ถ้ารูปโหลดไม่ได้จริงๆ ให้ส่งข้อความออกไปก่อนเพื่อไม่ให้ขาดช่วง
+            print("⚠️ Sending text only...")
             payload_text = {
                 "chat_id": CHAT_ID,
                 "text": caption_text,
                 "parse_mode": "HTML"
             }
-            r = requests.post(api_message_url, data=payload_text)
+            r = requests.post(api_message_url, data=payload_text, timeout=10)
             print(f"Telegram Text-Only Status: {r.status_code}")
             
     except Exception as e:
